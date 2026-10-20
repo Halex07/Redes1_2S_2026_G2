@@ -298,3 +298,182 @@ exit
 end
 write memory
 ```
+
+
+**9\. SW-OCC-1**
+```
+
+enable
+configure terminal
+hostname SW-OCC-1
+spanning-tree mode rapid-pvst
+vlan 12
+ name Cajas
+vlan 22
+ name Asesores
+vlan 32
+ name Gerencia
+vlan 42
+ name Seguridad
+ exit
+interface GigabitEthernet0/1
+ description Trunk hacia R-OCCIDENTE
+ switchport mode trunk
+ exit
+interface range FastEthernet0/1 - 2
+ switchport mode access
+ switchport access vlan 12
+ spanning-tree portfast
+ exit
+interface range FastEthernet0/3 - 4
+ switchport mode access
+ switchport access vlan 22
+ spanning-tree portfast
+ exit
+interface FastEthernet0/5
+ switchport mode access
+ switchport access vlan 32
+ spanning-tree portfast
+ exit
+interface range FastEthernet0/6 - 7
+ switchport mode access
+ switchport access vlan 42
+ spanning-tree portfast
+ exit
+end
+write memory
+```
+
+**10\. SW-DC-DIST (3560)**
+```
+enable
+configure terminal
+hostname SW-DC-DIST
+spanning-tree mode rapid-pvst
+vtp domain bantech49
+vtp password cisco
+vtp mode server
+vlan 13
+ name Core_BD
+vlan 23
+ name Web_Apps
+vlan 33
+ name NOC
+ exit
+spanning-tree vlan 13,23,33 priority 4096
+! EtherChannel hacia SW-DC-ACC (Gi0/1 y Gi0/2 del 2960)
+interface range FastEthernet0/23 - 24
+ description EtherChannel hacia SW-DC-ACC
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ channel-protocol lacp
+ channel-group 1 mode active
+ no shutdown
+ exit
+interface Port-channel1
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ exit
+! Servidores
+interface range FastEthernet0/1 - 2
+ description Servidores DB
+ switchport mode access
+ switchport access vlan 13
+ spanning-tree portfast
+ exit
+interface range FastEthernet0/3 - 4
+ description Servidores WEB
+ switchport mode access
+ switchport access vlan 23
+ spanning-tree portfast
+ exit
+! Cable sobrante hacia R-CENTRAL1
+interface GigabitEthernet0/1
+ description Sin uso (cable a R-CENTRAL1)
+ shutdown
+ exit
+end
+write memory
+
+**11\. SW-DC-ACC (2960)**
+```
+enable
+configure terminal
+hostname SW-DC-ACC
+spanning-tree mode rapid-pvst
+vtp domain bantech49
+vtp password cisco
+vtp mode client
+! EtherChannel hacia SW-DC-DIST (Fa0/23-24 del 3560)
+interface range GigabitEthernet0/1 - 2
+ description EtherChannel hacia SW-DC-DIST
+ switchport mode trunk
+ channel-protocol lacp
+ channel-group 1 mode active
+ no shutdown
+ exit
+interface Port-channel1
+ switchport mode trunk
+ exit
+! Trunk hacia R-CENTRAL2 (Gi0/0/1)
+interface FastEthernet0/24
+ description Trunk hacia R-CENTRAL2
+ switchport mode trunk
+ no shutdown
+ exit
+! Puerto sin uso
+interface FastEthernet0/23
+ shutdown
+ exit
+end
+show vlan brief
+```
+configure terminal
+interface range FastEthernet0/1 - 2
+ description Servidores NOC
+ switchport mode access
+ switchport access vlan 33
+ spanning-tree portfast
+ exit
+interface FastEthernet0/3
+ description Servidor WEB-3
+ switchport mode access
+ switchport access vlan 23
+ spanning-tree portfast
+ exit
+end
+write memory
+```
+**13\. R-CENTRAL2 (ISR 4331)**
+```
+enable
+configure terminal
+hostname R-CENTRAL2
+interface GigabitEthernet0/0/0
+ description Enlace a R-CENTRAL1
+ ip address 10.49.64.2 255.255.255.252
+ no shutdown
+ exit
+interface GigabitEthernet0/0/1
+ description Trunk hacia SW-DC-ACC
+ no ip address
+ no shutdown
+ exit
+interface GigabitEthernet0/0/1.13
+ description Core_BD
+ encapsulation dot1Q 13
+ ip address 10.49.64.129 255.255.255.224
+ exit
+interface GigabitEthernet0/0/1.23
+ description Web_Apps
+ encapsulation dot1Q 23
+ ip address 10.49.64.161 255.255.255.224
+ exit
+interface GigabitEthernet0/0/1.33
+ description NOC
+ encapsulation dot1Q 33
+ ip address 10.49.64.193 255.255.255.240
+ exit
+ip route 0.0.0.0 0.0.0.0 10.49.64.1
+end
+write memory
